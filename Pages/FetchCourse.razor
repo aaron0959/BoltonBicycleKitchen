@@ -1,0 +1,356 @@
+﻿@page "/fetchCourse"
+
+<PageTitle>Courses</PageTitle>
+
+@using BBK_A2_SWE5201_2201525.Data
+@using BBK_A2_SWE5201_2201525.Data.BBKDB
+@inject courseTest CourseService
+@*
+
+    Using OwningComponentBase ensures that the service and related services
+
+    that share its scope are disposed with the component.
+
+    Otherwise DbContext in courseTest will live for the life of the
+
+    connection, which may be problematic if clients stay
+
+    connected for a long time.
+
+    We access courseTest using @Service
+
+*@
+@inherits OwningComponentBase<courseTest>
+
+<h1>Courses</h1>
+
+<AuthorizeView>
+    <Authorized>
+       
+
+
+        <p>This component demonstrates fetching data from a service.</p>
+
+        @if (courses == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <table class="table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Name</th>
+
+                        <th>Host</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @foreach (var course in courses)
+
+                    {
+
+                        <tr>
+
+                            <td>@course.CourseName</td>
+                            <td>@course.Volunteer.VolunteerForename @course.Volunteer.VolunteerSurname</td>
+
+                            
+
+                            <td>
+
+                                <!-- Edit the current course -->
+
+                                <button class="btn btn-primary"
+                                        @onclick="(() => EditCourse(course))">
+
+                                    Edit
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+
+            </table>
+
+            <p>
+
+                <!-- Add a new course -->
+
+                <button class="btn btn-success"
+                        @onclick="AddNewCourse">
+
+                    Add Course
+
+                </button>
+
+            </p>
+            @if (ShowPopup)
+
+            {
+
+                <!-- This is the popup to create or edit a course -->
+
+                <div class="modal" tabindex="-1" style="display:block" role="dialog">
+
+                    <div class="modal-dialog">
+
+                        <div class="modal-content">
+
+                            <div class="modal-header">
+
+                                <h3 class="modal-title">Edit Course</h3>
+
+                                <!-- Button to close the popup -->
+
+                                <button type="button" class="close"
+                                        @onclick="ClosePopup">
+
+                                    <span aria-hidden="true">X</span>
+
+                                </button>
+
+                            </div>
+
+                            <!-- New Course -->
+
+                            <div class="modal-body">
+
+                                <input class="form-control" type="text"
+                                       placeholder="Course Title"
+                                       @bind="objCourse.CourseName" />
+                                <input class="form-control" type="text"
+                                       placeholder="Volunteer Id..."
+                                       @bind="objCourse.VolunteerId" />
+
+                                <br />
+
+                                <!-- Button to save the course -->
+
+                                <button class="btn btn-success"
+                                        @onclick="SaveCourse">
+
+                                    Save
+
+                                </button>&nbsp;
+                                <!-- Only show delete button if not a new record -->
+                                @if (objCourse.CourseId >= 0)
+
+                                {
+
+                                    <!-- Button to delete the course -->
+
+                                    <button class="btn btn-danger"
+                                            @onclick="DeleteCourse">
+
+                                        Delete
+
+                                    </button>
+
+                                }
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            }
+
+        }
+
+    </Authorized>
+
+    <!-- Show this section if the user is not logged in -->
+
+    <NotAuthorized>
+
+        <p>You're not signed in.</p>
+
+    </NotAuthorized>
+
+</AuthorizeView>
+
+@code {
+
+    // AuthenticationState is available as a CascadingParameter
+
+    [CascadingParameter]
+
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    List<Course> courses = new List<Course>();
+
+    private string UserIdentityName = "";
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        // Get the current user
+
+        if (authenticationStateTask != null)
+
+        {
+
+            var user = (await authenticationStateTask).User;
+
+            if (user.Identity != null)
+
+            {
+
+                UserIdentityName = user.Identity.Name ?? "";
+
+            }
+
+            courses = await @CourseService.GetCourseAsync(UserIdentityName);
+
+        }
+
+
+
+
+
+
+    }
+    Course objCourse = new Course();
+
+    bool ShowPopup = false;
+
+    void ClosePopup()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+    }
+
+    void AddNewCourse()
+
+    {
+
+        // Make new course
+
+        objCourse= new Course();
+
+        // Set Id to 0 so we know it is a new record
+
+        objCourse.CourseId = 0;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+
+    async Task SaveCourse()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // A new course will have the Id set to 0
+
+        if (objCourse.CourseId == 0)
+
+        {
+
+            // Create new course
+
+            Course objNewCourse = new Course();
+
+            objNewCourse.CourseName = objCourse.CourseName;
+            objNewCourse.VolunteerId = objCourse.VolunteerId;
+
+
+            // Save the result
+
+            var result =
+
+            @Service.CreateCourseAsync(objNewCourse);
+
+        }
+
+        else
+
+        {
+
+            // This is an update
+            {
+
+                // This is an update
+
+                var result =
+
+                @Service.UpdateCourseAsync(objCourse);
+
+            }
+
+
+        }
+
+        // Get the courses for the current user
+
+        courses =
+
+        await @Service.GetCourseAsync(UserIdentityName);
+
+    }
+
+
+    void EditCourse(Course course)
+
+    {
+
+        // Set the selected course
+
+        // as the current course
+
+        objCourse = course;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+    async Task DeleteCourse()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // Delete the forecast
+
+        var result = @Service.DeleteCourseAsync(objCourse);
+
+        // Get the forecasts for the current user
+
+        courses =
+
+        await @Service.GetCourseAsync(UserIdentityName);
+
+    }
+
+
+
+}

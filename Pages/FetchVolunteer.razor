@@ -1,0 +1,384 @@
+﻿@page "/fetchVolunteers"
+
+<PageTitle>Volunteers</PageTitle>
+
+@using BBK_A2_SWE5201_2201525.Data
+@using BBK_A2_SWE5201_2201525.Data.BBKDB
+@inject volunteerTest VolunteerService
+@*
+
+    Using OwningComponentBase ensures that the service and related services
+
+    that share its scope are disposed with the component.
+
+    Otherwise DbContext in ForecastService will live for the life of the
+
+    connection, which may be problematic if clients stay
+
+    connected for a long time.
+
+    We access volunteerTest using @Service
+
+*@
+@inherits OwningComponentBase<volunteerTest>
+
+<h1>Volunteers</h1>
+
+<AuthorizeView>
+    <Authorized>
+
+
+        <p>This component demonstrates fetching data from a service.</p>
+
+        @if (volunteers == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <table class="table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Name</th>
+
+                        <th>Phone Number</th>
+
+                        <th>Email</th>
+
+                        <th>Address</th>
+
+                        <th>ID</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @foreach (var volunteer in volunteers)
+
+                    {
+
+                        <tr>
+
+                            <td>@volunteer.VolunteerForename @volunteer.VolunteerSurname</td>
+
+                            <td>@volunteer.VolunteerPhoneNumber</td>
+
+                            <td>@volunteer.VolunteerEmail</td>
+
+                            <td>@volunteer.VolunteerAddress</td>
+
+                            <td>@volunteer.VolunteerId</td>
+
+                            <td>
+
+                                <!-- Edit the current volunteer -->
+
+                                <button class="btn btn-primary"
+                                        @onclick="(() => EditVolunteer(volunteer))">
+
+                                    Edit
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+
+            </table>
+
+            <p>
+
+                <!-- Add a new forecast -->
+
+                <button class="btn btn-success"
+                        @onclick="AddNewVolunteer">
+
+                    Add Volunteer
+
+                </button>
+
+            </p>
+            @if (ShowPopup)
+
+            {
+
+                <!-- This is the popup to create or edit a forecast -->
+
+                <div class="modal" tabindex="-1" style="display:block" role="dialog">
+
+                    <div class="modal-dialog">
+
+                        <div class="modal-content">
+
+                            <div class="modal-header">
+
+                                <h3 class="modal-title">Edit Volunteer</h3>
+
+                                <!-- Button to close the popup -->
+
+                                <button type="button" class="close"
+                                        @onclick="ClosePopup">
+
+                                    <span aria-hidden="true">X</span>
+
+                                </button>
+
+                            </div>
+
+                            <!-- New Volunteer -->
+
+                            <div class="modal-body">
+
+                                <input class="form-control" type="text"
+                                       placeholder="First Name..."
+                                       @bind="objVolunteer.VolunteerForename" />
+
+                                <input class="form-control" type="text"
+                                       placeholder="Last Name..."
+                                       @bind="objVolunteer.VolunteerSurname" />
+
+                                <input class="form-control" type="text"
+                                       placeholder="Phone Number..."
+                                       @bind="objVolunteer.VolunteerPhoneNumber" />
+                                <input class="form-control" type="text"
+                                       placeholder="Email..."
+                                       @bind="objVolunteer.VolunteerEmail" />
+                                <input class="form-control" type="text"
+                                       placeholder="Address"
+                                       @bind="objVolunteer.VolunteerAddress" />
+
+                                <br />
+
+                                <!-- Button to save the forecast -->
+
+                                <button class="btn btn-success"
+                                        @onclick="SaveVolunteer">
+
+                                    Save
+
+                                </button>&nbsp;
+                                <!-- Only show delete button if not a new record -->
+                                @if (objVolunteer.VolunteerId >= 0)
+
+                                {
+
+                                    <!-- Button to delete the forecast -->
+
+                                    <button class="btn btn-danger"
+                                            @onclick="DeleteVolunteer">
+
+                                        Delete
+
+                                    </button>
+
+                                }
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            }
+
+        }
+
+    </Authorized>
+
+    <!-- Show this section if the user is not logged in -->
+
+    <NotAuthorized>
+
+        <p>You're not signed in.</p>
+
+    </NotAuthorized>
+
+</AuthorizeView>
+
+@code {
+
+    // AuthenticationState is available as a CascadingParameter
+
+    [CascadingParameter]
+
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    List<Volunteer> volunteers = new List<Volunteer>();
+
+    private string UserIdentityName = "";
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        // Get the current user
+
+        if (authenticationStateTask != null)
+
+        {
+
+            var user = (await authenticationStateTask).User;
+
+            if (user.Identity != null)
+
+            {
+
+                UserIdentityName = user.Identity.Name ?? "";
+
+            }
+
+            volunteers = await @Service.GetVolunteerAsync(UserIdentityName);
+
+        }
+
+
+
+
+
+
+    }
+    Volunteer objVolunteer = new Volunteer();
+
+    bool ShowPopup = false;
+
+    void ClosePopup()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+    }
+
+    void AddNewVolunteer()
+
+    {
+
+        // Make new forecast
+
+        objVolunteer = new Volunteer();
+
+        // Set Id to 0 so we know it is a new record
+
+        objVolunteer.VolunteerId = 0;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+
+    async Task SaveVolunteer()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // A new forecast will have the Id set to 0
+
+        if (objVolunteer.VolunteerId == 0)
+
+        {
+
+            // Create new forecast
+
+            Volunteer objNewVolunteer = new Volunteer();
+
+            objNewVolunteer.VolunteerForename = objVolunteer.VolunteerForename;
+
+            objNewVolunteer.VolunteerSurname = objVolunteer.VolunteerSurname;
+
+            objNewVolunteer.VolunteerPhoneNumber = objVolunteer.VolunteerPhoneNumber;
+
+            objNewVolunteer.VolunteerEmail = objVolunteer.VolunteerEmail;
+
+            objNewVolunteer.VolunteerAddress = objVolunteer.VolunteerAddress;
+
+
+            // Save the result
+
+            var result =
+
+            @Service.CreateVolunteerAsync(objNewVolunteer);
+
+        }
+
+        else
+
+        {
+
+            // This is an update
+            {
+
+                // This is an update
+
+                var result =
+
+                @Service.UpdateVolunteerAsync(objVolunteer);
+
+            }
+
+
+        }
+
+        // Get the forecasts for the current user
+
+        volunteers =
+
+        await @Service.GetVolunteerAsync(UserIdentityName);
+
+    }
+
+
+    void EditVolunteer(Volunteer volunteer)
+
+    {
+
+        // Set the selected forecast
+
+        // as the current forecast
+
+        objVolunteer = volunteer;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+    async Task DeleteVolunteer()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // Delete the forecast
+
+        var result = @Service.DeleteVolunteerAsync(objVolunteer);
+
+        // Get the forecasts for the current user
+
+        volunteers =
+
+        await @Service.GetVolunteerAsync(UserIdentityName);
+
+    }
+
+
+
+}

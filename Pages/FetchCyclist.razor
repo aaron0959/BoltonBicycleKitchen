@@ -1,0 +1,419 @@
+﻿@page "/fetchCyclists"
+
+<PageTitle>Cyclists</PageTitle>
+
+@using BBK_A2_SWE5201_2201525.Data
+@using BBK_A2_SWE5201_2201525.Data.BBKDB
+@inject cyclistTest CyclistService
+@*
+
+    Using OwningComponentBase ensures that the service and related services
+
+    that share its scope are disposed with the component.
+
+    Otherwise DbContext in cyclistTest will live for the life of the
+
+    connection, which may be problematic if clients stay
+
+    connected for a long time.
+
+    We access cyclistTest using @Service
+
+*@
+@inherits OwningComponentBase<cyclistTest>
+
+<h1>Cyclists</h1>
+
+<AuthorizeView>
+    <Authorized>
+
+
+<p>This component demonstrates fetching data from a service.</p>
+
+@if (cyclists == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+               <table class="table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Name</th>
+
+                        <th>Phone Number</th>
+
+                        <th>Email</th>
+
+                        <th>Address</th>
+
+                        <th>ID</th>
+
+                        <th>Course</th>
+
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @foreach (var cyclist in cyclists)
+
+                    {
+
+                        <tr>
+
+                            <td>@cyclist.FirstName @cyclist.LastName</td>
+
+                            <td>@cyclist.PhoneNumber</td>
+
+                            <td>@cyclist.Email</td>
+
+                            <td>@cyclist.Address</td>
+
+                            <td>@cyclist.CyclistId</td>
+
+                            <td>@cyclist.Course.CourseName</td>
+
+                            
+
+                            <td>
+
+                                <!-- Edit the current cyclist -->
+
+                                <button class="btn btn-primary"
+
+                                @onclick="(() => EditCyclist(cyclist))">
+
+                                Edit
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+
+            </table>
+
+
+            <p>
+
+                <!-- Add a new cyclist -->
+
+                <button class="btn btn-success"
+                        @onclick="AddNewCyclist">
+
+                    Add Cyclist
+
+                </button>
+
+            </p>
+                        @if (ShowPopup)
+
+            {
+
+                <!-- This is the popup to create or edit a cyclist -->
+
+                <div class="modal" tabindex="-1" style="display:block" role="dialog">
+
+                    <div class="modal-dialog">
+
+                        <div class="modal-content">
+
+                            <div class="modal-header">
+
+                                <h3 class="modal-title">Edit Cyclist</h3>
+
+                                <!-- Button to close the popup -->
+
+                                <button type="button" class="close"
+
+                                @onclick="ClosePopup">
+
+                                    <span aria-hidden="true">X</span>
+
+                                </button>
+
+                            </div>
+
+                            <!-- New Cyclist -->
+
+                            <div class="modal-body">
+
+                                <input class="form-control" type="text"
+
+                                placeholder="First Name..."
+
+                               @bind="objCyclist.FirstName" />
+
+                                <input class="form-control" type="text"
+
+                               placeholder="Last Name..."
+
+                               @bind="objCyclist.LastName" />
+
+                                <input class="form-control" type="text"
+
+                               placeholder="Phone Number..."
+
+                               @bind="objCyclist.PhoneNumber" />
+                               <input class="form-control" type="text"
+
+                               placeholder="Email..."
+
+                               @bind="objCyclist.Email" />
+                               <input class="form-control" type="text"
+
+                               placeholder="Address..."
+
+                               @bind="objCyclist.Address"/>
+
+                                <input class="form-control" type="text"
+                                       placeholder="Course ID ..."
+                                       @bind="objCyclist.CourseId" />
+
+                                <br />
+
+                                <!-- Button to save the cyclist -->
+
+                                <button class="btn btn-success"
+
+                                @onclick="SaveCyclist">
+
+                                    Save
+
+                                </button>&nbsp;
+                                 <!-- Only show delete button if not a new record -->
+
+                                @if (objCyclist.CyclistId > 0)
+
+                                {                                    
+
+                                    <!-- Button to delete the cyclist -->
+
+                                    <button class="btn btn-danger"
+
+                                    @onclick="DeleteCyclist">
+
+                                    Delete
+
+                                </button>
+
+                                }
+
+                             </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            }
+                                           
+}
+
+        }
+
+    </Authorized>
+
+    <!-- Show this section if the user is not logged in -->
+
+    <NotAuthorized>
+
+        <p>You're not signed in.</p>
+
+    </NotAuthorized>
+
+</AuthorizeView>
+
+@code {
+
+    // AuthenticationState is available as a CascadingParameter
+
+    [CascadingParameter]
+
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    List<Cyclist>cyclists = new List<Cyclist>();
+
+  
+
+    private string UserIdentityName = "";
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        // Get the current user
+
+        if (authenticationStateTask != null)
+
+        {
+
+            var user = (await authenticationStateTask).User;
+
+            if (user.Identity != null)
+
+            {
+
+                UserIdentityName = user.Identity.Name ?? "";
+
+            }
+
+            cyclists = await @Service.GetCyclistAsync(UserIdentityName);
+
+        }
+
+
+
+
+
+
+    }
+
+    Cyclist objCyclist = new Cyclist();
+
+    bool ShowPopup = false;
+
+
+    void ClosePopup()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+    }
+
+    void AddNewCyclist()
+
+    {
+
+        // Make new cyclist
+
+        objCyclist = new Cyclist();
+
+        // Set Id to 0 so we know it is a new record
+
+        objCyclist.CyclistId = 0;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+
+    async Task SaveCyclist()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // A new cyclist will have the Id set to 0
+
+        if (objCyclist.CyclistId == 0)
+
+        {
+
+            // Create new cyclist
+
+            Cyclist objNewCyclist = new Cyclist();
+
+            objNewCyclist.FirstName = objCyclist.FirstName;
+
+            objNewCyclist.LastName = objCyclist.LastName;
+
+            objNewCyclist.PhoneNumber = objCyclist.PhoneNumber;
+
+            objNewCyclist.Email = objCyclist.Email ;
+
+            objNewCyclist.Address = objCyclist.Address;
+
+            objNewCyclist.CourseId = objCyclist.CourseId;
+
+
+            // Save the result
+
+            var result =
+
+            @Service.CreateCyclistAsync(objNewCyclist);
+
+        }
+
+        else
+
+        {
+
+            // This is an update
+                    {
+
+            // This is an update
+
+            var result =
+
+            @Service.UpdateCyclistAsync(objCyclist);
+
+        }
+
+
+        }
+
+        // Get the cyclist for the current user
+
+        cyclists =
+
+        await @Service.GetCyclistAsync(UserIdentityName);
+
+    }
+
+
+        void EditCyclist(Cyclist cyclist)
+
+    {
+
+        // Set the selected cyclist
+
+        // as the current cyclist
+
+        objCyclist = cyclist;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+        async Task DeleteCyclist()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // Delete the cyclist
+
+        var result = @Service.DeleteCyclistAsync(objCyclist);
+
+        // Get the cyclist for the current user
+
+        cyclists =
+
+        await @Service.GetCyclistAsync(UserIdentityName);
+
+    }
+
+
+
+}

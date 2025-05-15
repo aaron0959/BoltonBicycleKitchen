@@ -1,0 +1,361 @@
+﻿@page "/fetchParts"
+
+<PageTitle>Parts</PageTitle>
+
+@using BBK_A2_SWE5201_2201525.Data
+@using BBK_A2_SWE5201_2201525.Data.BBKDB
+@inject partTest PartService
+@*
+
+    Using OwningComponentBase ensures that the service and related services
+
+    that share its scope are disposed with the component.
+
+    Otherwise DbContext in partTest will live for the life of the
+
+    connection, which may be problematic if clients stay
+
+    connected for a long time.
+
+    We access partTest using @Service
+
+*@
+@inherits OwningComponentBase<partTest>
+
+<h1>Parts</h1>
+
+<AuthorizeView>
+    <Authorized>
+
+
+        <p>This component demonstrates fetching data from a service.</p>
+
+        @if (parts == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <table class="table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Name</th>
+
+                        <th>Cost</th>
+
+                        <th>ID</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    @foreach (var part in parts)
+
+                    {
+
+                        <tr>
+
+                            <td>@part.PartName</td>
+
+                            <td>@part.PartCost</td>
+
+                            <td>@part.PartId</td>
+
+                            <td>
+
+                                <!-- Edit the current parts -->
+
+                                <button class="btn btn-primary"
+                                        @onclick="(() => EditPart(part))">
+
+                                    Edit
+
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+
+            </table>
+
+            <p>
+
+                <!-- Add a new part -->
+
+                <button class="btn btn-success"
+                        @onclick="AddNewPart">
+
+                    Add Part
+
+                </button>
+
+            </p>
+            @if (ShowPopup)
+
+            {
+
+                <!-- This is the popup to create or edit a part -->
+
+                <div class="modal" tabindex="-1" style="display:block" role="dialog">
+
+                    <div class="modal-dialog">
+
+                        <div class="modal-content">
+
+                            <div class="modal-header">
+
+                                <h3 class="modal-title">Edit Part</h3>
+
+                                <!-- Button to close the popup -->
+
+                                <button type="button" class="close"
+                                        @onclick="ClosePopup">
+
+                                    <span aria-hidden="true">X</span>
+
+                                </button>
+
+                            </div>
+
+                            <!-- New Part -->
+
+                            <div class="modal-body">
+
+                                <input class="form-control" type="text"
+                                       placeholder="Part Name..."
+                                       @bind="objPart.PartName" />
+
+                                <input class="form-control" type="text"
+                                       placeholder="Part Cost..."
+                                       @bind="objPart.PartCost" />
+
+                                <br />
+
+                                <!-- Button to save the part -->
+
+                                <button class="btn btn-success"
+                                        @onclick="SavePart">
+
+                                    Save
+
+                                </button>&nbsp;
+                                <!-- Only show delete button if not a new record -->
+                                @if (objPart.PartId >= 0)
+
+                                {
+
+                                    <!-- Button to delete the part -->
+
+                                    <button class="btn btn-danger"
+                                            @onclick="DeletePart">
+
+                                        Delete
+
+                                    </button>
+
+                                }
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            }
+
+        }
+
+    </Authorized>
+
+    <!-- Show this section if the user is not logged in -->
+
+    <NotAuthorized>
+
+        <p>You're not signed in.</p>
+
+    </NotAuthorized>
+
+</AuthorizeView>
+
+@code {
+
+    // AuthenticationState is available as a CascadingParameter
+
+    [CascadingParameter]
+
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    List<Part> parts = new List<Part>();
+
+    private string UserIdentityName = "";
+
+    protected override async Task OnInitializedAsync()
+
+    {
+
+        // Get the current user
+
+        if (authenticationStateTask != null)
+
+        {
+
+            var user = (await authenticationStateTask).User;
+
+            if (user.Identity != null)
+
+            {
+
+                UserIdentityName = user.Identity.Name ?? "";
+
+            }
+
+            parts = await @Service.GetPartAsync(UserIdentityName);
+
+        }
+
+
+
+
+
+
+    }
+    Part objPart = new Part();
+
+    bool ShowPopup = false;
+
+    void ClosePopup()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+    }
+
+    void AddNewPart()
+
+    {
+
+        // Make new part
+
+        objPart = new Part();
+
+        // Set Id to 0 so we know it is a new record
+
+        objPart.PartId = 0;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+
+    async Task SavePart()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // A new part will have the Id set to 0
+
+        if (objPart.PartId == 0)
+
+        {
+
+            // Create new part
+
+            Part objNewPart = new Part();
+
+            objNewPart.PartName = objPart.PartName;
+
+            objNewPart.PartCost = objPart.PartCost;
+
+
+            // Save the result
+
+            var result =
+
+            @Service.CreatePartAsync(objNewPart);
+
+        }
+
+        else
+
+        {
+
+            // This is an update
+            {
+
+                // This is an update
+
+                var result =
+
+                @Service.UpdatePartAsync(objPart);
+
+            }
+
+
+        }
+
+        // Get the parts for the current user
+
+        parts =
+
+        await @Service.GetPartAsync(UserIdentityName);
+
+    }
+
+
+    void EditPart(Part part)
+
+    {
+
+        // Set the selected part
+
+        // as the current part
+
+        objPart = part;
+
+        // Open the Popup
+
+        ShowPopup = true;
+
+    }
+    async Task DeletePart()
+
+    {
+
+        // Close the Popup
+
+        ShowPopup = false;
+
+        // Delete the part
+
+        var result = @Service.DeletePartAsync(objPart);
+
+        // Get the parts for the current user
+
+        parts =
+
+        await @Service.GetPartAsync(UserIdentityName);
+
+    }
+
+
+
+
+}
